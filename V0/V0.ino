@@ -4,7 +4,7 @@
 Servo myServo;
 
 // Define the GPIO pin the servo's signal wire is connected to
-const int servoPin = 13;
+const int servoPin = 1;
 
 void setup() {
   // Attach the servo on the defined pin to the servo object
