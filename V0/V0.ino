@@ -155,7 +155,7 @@ void gate2_open() {
   digitalWrite(inb1, LOW);
   digitalWrite(inb2, LOW);
 
-  delay(8000);
+  delay(6000);
 
   digitalWrite(inb4, LOW);
   digitalWrite(inb3, LOW);
@@ -178,7 +178,7 @@ void gate2_close() {
   delay(3000);
   digitalWrite(inb1, LOW);
   digitalWrite(inb2, LOW);
-  delay(11000);
+  delay(9000);
   digitalWrite(inb3, LOW);
   digitalWrite(inb4, LOW);
 }
