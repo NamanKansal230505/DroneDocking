@@ -1,19 +1,11 @@
-/*
-  Code to control two gates with two motors each (open/close)
-  using two L298N motor drivers.
 
-  -- UPDATED PIN ASSIGNMENTS --
 
-  - Driver 1 controls Gate 1:
-    - Motor A: MO1 (Motor Open 1)  -> ina1, ina2
-    - Motor B: MC1 (Motor Close 1) -> ina3, ina4
 
-  - Driver 2 controls Gate 2:
-    - Motor A: MO2 (Motor Open 2)  -> inb1, inb2
-    - Motor B: MC2 (Motor Close 2) -> inb3, inb4
-*/
 
-// ## Pin Definitions for L298N Driver 1 (Gate 1) ##
+
+#include <WiFi.h>
+#include <Firebase_ESP_Client.h>
+
 // Connect to Motor A output on Driver 1
 const int ina1 = 23; // Motor Open 1 (MO1)
 const int ina2 = 22; // Motor Open 1 (MO1)
@@ -32,9 +24,51 @@ const int inb2 = 19; // Motor Open 2 (MO2)
 const int inb3 = 18; // Motor Close 2 (MC2)
 const int inb4 = 5; // Motor Close 2 (MC2)
 
+const int Close = 4; // Motor Close 2 (MC2)
 
-void setup() {
-  // Set all motor control pins as OUTPUTs
+/* 1. Define the WiFi credentials */
+#define WIFI_SSID "Airtel_M-1102"
+#define WIFI_PASSWORD "amc@m1102"
+
+/* 2. Define the API Key */
+#define API_KEY "AIzaSyA27lgwgBhByNuye_b5hVOZTeK7IjLLbis"
+
+/* 3. Define the RTDB URL */
+#define DATABASE_URL "https://saarthi-84622-default-rtdb.asia-southeast1.firebasedatabase.app/"
+
+/* 4. Define the user Email and password that already registered or added in your project */
+#define USER_EMAIL "naman.saarthi@gmail.com"
+#define USER_PASSWORD "12345678"
+
+// Define Firebase Data object
+FirebaseData fbdo;
+
+FirebaseAuth auth;
+FirebaseConfig config;
+
+unsigned long sendDataPrevMillis = 0;
+
+const int ledPin1 = 15  ;
+
+
+void setup()
+{
+  
+
+  Serial.begin(115200);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.println();
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+  pinMode(Close, INPUT_PULLUP);
   pinMode(ina1, OUTPUT);
   pinMode(ina2, OUTPUT);
   pinMode(ina3, OUTPUT);
@@ -43,43 +77,66 @@ void setup() {
   pinMode(inb2, OUTPUT);
   pinMode(inb3, OUTPUT);
   pinMode(inb4, OUTPUT);
-
-  // Ensure all motors are stopped at the beginning
   stop_all_motors();
-  gate1_open();
-  gate2_open();
-  gate2_close();
-  gate1_close();
+
+  /* Assign the api key (required) */
+  config.api_key = API_KEY;
+
+  /* Assign the user sign in credentials */
+  auth.user.email = USER_EMAIL;
+  auth.user.password = USER_PASSWORD;
+
+  /* Assign the RTDB URL (required) */
+  config.database_url = DATABASE_URL;
+
+  // Comment or pass false value when WiFi reconnection will control by your code or third party library e.g. WiFiManager
+  Firebase.reconnectNetwork(true);
+
+  // Since v4.4.x, BearSSL engine was used, the SSL buffer need to be set.
+  // Large data transmission may require larger RX buffer, otherwise connection issue or data read time out can be occurred.
+  fbdo.setBSSLBufferSize(4096 /* Rx buffer size in bytes from 512 - 16384 */, 1024 /* Tx buffer size in bytes from 512 - 16384 */);
+
+  // Limit the size of response payload to be collected in FirebaseData
+  fbdo.setResponseSize(2048);
+
+  Firebase.begin(&config, &auth);
+
+  Firebase.setDoubleDigits(5);
+
+  config.timeout.serverResponse = 10 * 1000;
+  
 }
 
-void loop() {
-  // --- This is an example sequence. ---
-  // --- Edit the function calls and delays to fit your needs. ---
 
-//  // Open Gate 1
-//  gate1_open();
-//  delay(2000); // <-- EDIT this delay for how long it takes to open Gate 1
-//
-//  // Close Gate 1
-//  gate1_close();
-//  delay(2000); // <-- EDIT this delay for how long it takes to close Gate 1
-//
-//  // Open Gate 2
-//  gate2_open();
-//  delay(2000); // <-- EDIT this delay for how long it takes to open Gate 2
-//
-//  // Close Gate 2
-//  gate2_close();
-//  delay(2000); // <-- EDIT this delay for how long it takes to close Gate 2
-//
-//  // Stop everything for a moment before repeating
-//  stop_all_motors();
-//  delay(3000);
-}
+void loop()
+{
+  if (Firebase.ready() && (millis() - sendDataPrevMillis > 1000 || sendDataPrevMillis == 0))
+  {
+    sendDataPrevMillis = millis();
 
-// ======================================================
-// ## Gate 1 Control Functions ##
-// ======================================================
+    // Handle /index/hom
+    int activate = 0;
+    if (Firebase.RTDB.getInt(&fbdo, "activate", &activate))
+    {
+      Serial.print("On?: ");
+      Serial.println(activate);
+
+      if (activate == 1)
+      {
+        stop_all_motors();
+        gate1_open();
+        gate2_open();
+        Firebase.RTDB.setInt(&fbdo,"activate", 0);  
+      }
+      else if((digitalRead(Close))==LOW){
+        
+        gate2_close();
+        gate1_close();
+      }
+      
+  }
+}}
+
 
 void gate1_open() {
   // Stop the "close" motor first to be safe
